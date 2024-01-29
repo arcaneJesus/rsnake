@@ -1,7 +1,5 @@
 use raylib::prelude::{*, KeyboardKey::{KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT}};
 use std::collections::VecDeque;
-use std::env::current_dir;
-use raylib::consts::guiIconName::RICON_FOLDER_OPEN;
 
 // -------- CONSTANTS ---------
 // ---- SIZE ----
@@ -36,6 +34,12 @@ enum GameState {
     End,
 }
 
+#[derive(Clone)]
+enum EndBehavior {
+    Wrap,
+    Clamp,
+}
+
 // ---------- STRUCTS ---------
 
 #[derive(PartialEq, Copy, Clone)]
@@ -44,9 +48,43 @@ struct Point {
     y: i32,
 }
 
+/// Currently selected menu item and the selection indicators.
+#[derive(Clone)]
+struct MenuIndex {
+    index: i32,
+    items: i32,
+    left_sel: String,
+    right_sel: String,
+    end_behavior: EndBehavior,
+}
+
 struct Snake {
     body: Body,
     head: Point,
+}
+
+/// Individual option in a menu.
+// Maybe add a closure for actions
+// Not entirely sure how I want that to work
+#[derive(Clone)]
+struct MenuOption {
+    display: String,
+}
+
+struct Menu { // TODO: Extract Menu implementations to separate file
+    index: MenuIndex,
+    options: Vec<MenuOption>,
+    font_size: i32,
+    color: Color,
+}
+
+struct MenuBuilder {
+    options: Vec<MenuOption>,
+    font_size: Option<i32>,
+    color: Option<Color>,
+    left_sel: Option<String>,
+    right_sel: Option<String>,
+    end_behavior: Option<EndBehavior>,
 }
 
 struct Game {
@@ -77,6 +115,160 @@ impl Apple {
             };
         }
         apple
+    }
+}
+
+impl MenuIndex {
+    fn new(items: i32, left_sel: String, right_sel: String, end_behavior: EndBehavior) -> Self {
+        Self {
+            index: 0,
+            items,
+            left_sel,
+            right_sel,
+            end_behavior,
+        }
+    }
+
+    /// Select the next menu item.
+    fn next(&mut self) -> &mut Self {
+        self.index = match self.end_behavior {
+            EndBehavior::Wrap => { self.index_wrap(self.index + 1) }
+            EndBehavior::Clamp => { self.index_clamp(self.index + 1) }
+        };
+        self
+    }
+
+    /// Select the previous menu item.
+    fn prev(&mut self) -> &mut Self {
+        self.index = match self.end_behavior {
+            EndBehavior::Wrap => { self.index_wrap(self.index - 1) }
+            EndBehavior::Clamp => { self.index_clamp(self.index - 1) }
+        };
+        self
+    }
+
+    /// Clamp index to list.
+    fn index_clamp(&self, val: i32) -> i32 {
+        if val < 0 {
+            0
+        } else {
+            self.index
+        }
+    }
+
+    /// Wrap index to list.
+    fn index_wrap(&self, val: i32) -> i32 {
+        if val > self.items - 1 {
+            0
+        } else if val < 0 {
+            self.items - 1
+        } else {
+            self.index
+        }
+    }
+}
+
+impl MenuOption {
+    fn new(display: &str) -> Box<Self> {
+        Box::new(Self {
+            display: display.to_string(),
+        })
+    }
+}
+
+impl Menu {
+    /// Generate empty MenuBuilder.
+    fn init() -> MenuBuilder {
+        MenuBuilder {
+            options: Vec::new(),
+            color: None,
+            font_size: None,
+            right_sel: None,
+            left_sel: None,
+            end_behavior: None,
+        }
+    }
+
+    /// Draw menu to the renderer provided.
+    fn draw<T: RaylibDraw>(&self, rndr: &mut T) {
+        // Calculate the x origins for each line
+        let x: Vec<(&MenuOption, i32)> = self.options
+            .iter()
+            .map(|x| (x, WINDOW_SIZE / 2 - measure_text(&*x.display, self.font_size) / 2))
+            .collect::<Vec<(&MenuOption, i32)>>();
+        // Calculate the y origin for the first line
+        let y: f32 = WINDOW_SIZE as f32 / 2.0 - self.font_size as f32 * 1.5;
+        // Iterate over menu options with an index
+        for (i, (op, pos)) in x.iter().enumerate() {
+            if self.index.index == i as i32 { // If current option is selected
+                rndr.draw_text(
+                    &*format!("{}{}{}", &self.index.left_sel, &op.display, &self.index.right_sel),
+                    *pos - measure_text("> ", self.font_size), // Adjust for selection indicator
+                    (y + (self.font_size as f32 * 1.5 * i as f32)) as i32, // Adjust by line number
+                    self.font_size,
+                    self.color,
+                );
+            } else {
+                rndr.draw_text(
+                    &*op.display,
+                    *pos,
+                    (y + (self.font_size as f32 * 1.5 * i as f32)) as i32, // Adjust by line number
+                    self.font_size,
+                    self.color,
+                );
+            }
+        }
+    }
+}
+
+impl MenuBuilder {
+    /// Define a new menu item.
+    fn item(mut self, display: &str) -> Self {
+        self.options.push(*MenuOption::new(display));
+        self
+    }
+
+    /// Define the text color.
+    fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Define the font size.
+    fn font_size(mut self, font_size: i32) -> Self {
+        self.font_size = Some(font_size);
+        self
+    }
+
+    // Define the selector appearance.
+    fn selector(mut self, left: &str, right: &str) -> Self {
+        self.left_sel = Some(left.to_string());
+        self.right_sel = Some(right.to_string());
+        self
+    }
+
+    // Build the final Menu.
+    fn build(&self) -> Menu {
+        Menu {
+            index: MenuIndex::new(
+                self.options.len() as i32,
+                self.left_sel
+                    .clone()
+                    .unwrap_or("> ".to_string()),
+                self.right_sel
+                    .clone()
+                    .unwrap_or(" <".to_string()),
+                self.end_behavior
+                    .clone()
+                    .unwrap_or(EndBehavior::Wrap)
+            ),
+            options: self.options
+                .clone(),
+            color: self.color
+                .unwrap_or(Color::RAYWHITE),
+            font_size: self.font_size
+                .unwrap_or(40),
+        }
     }
 }
 
@@ -177,7 +369,7 @@ impl Game {
 
 // ---------- FUNCTIONS ----------
 
-fn draw_grid_rect(draw_handle: &mut RaylibDrawHandle, point: &Point, color: Color) {
+fn draw_grid_rect<T: RaylibDraw>(draw_handle: &mut T, point: &Point, color: Color) {
     draw_handle.draw_rectangle(
         GRID_PX * point.x,
         GRID_PX * point.y,
@@ -196,6 +388,13 @@ fn main() {
     rl.set_target_fps(60);
 
     let mut game = Game::new();
+    let main_menu: Menu = Menu::init()
+        .item("Start Game")
+        .item("Help")
+        .item("Credits")
+        .color(TEXT_COLOR)
+        .font_size(FONT_SIZE)
+        .build();
 
     // While window is open
     while !rl.window_should_close() {
@@ -237,26 +436,22 @@ fn main() {
         let mut rndr = rl.begin_drawing(&thread);
         // Background color
         rndr.clear_background(BACKGROUND_COLOR);
-        // Draw head
-        draw_grid_rect(&mut rndr, &game.snake.head, HEAD_COLOR);
-        // Draw each body segment
-        for seg in &game.snake.body {
-            draw_grid_rect(&mut rndr, seg, BODY_COLOR);
-        }
-        // Draw apple
-        draw_grid_rect(&mut rndr, &game.apple, APPLE_COLOR);
-        // Draw score
-        rndr.draw_text(&game.score.to_string(), 40, 40, FONT_SIZE * 2, TEXT_COLOR);
-        // Draw start or end text
         match game.game_state {
             GameState::Start => {
-                rndr.draw_text(START_STRING,
-                               WINDOW_SIZE / 2 - measure_text(START_STRING, FONT_SIZE) / 2,
-                               WINDOW_SIZE / 2 - FONT_SIZE / 2,
-                               FONT_SIZE,
-                               TEXT_COLOR);
+                main_menu.draw(&mut rndr);
             }
-            GameState::Run => {}
+            GameState::Run => {
+                // Draw head
+                draw_grid_rect(&mut rndr, &game.snake.head, HEAD_COLOR);
+                // Draw each body segment
+                for seg in &game.snake.body {
+                    draw_grid_rect(&mut rndr, seg, BODY_COLOR);
+                }
+                // Draw apple
+                draw_grid_rect(&mut rndr, &game.apple, APPLE_COLOR);
+                // Draw score
+                rndr.draw_text(&game.score.to_string(), 40, 40, FONT_SIZE * 2, TEXT_COLOR);
+            }
             GameState::End => {
                 rndr.draw_text(END_STRING,
                                WINDOW_SIZE / 2 - measure_text(END_STRING, FONT_SIZE) / 2,
@@ -265,5 +460,23 @@ fn main() {
                                TEXT_COLOR);
             }
         }
+    }
+}
+
+// --------- TESTS -----------
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mi_clamp() {
+        assert_eq!(MenuIndex { index: 2, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Clamp }.next().index, 2);
+        assert_eq!(MenuIndex { index: 0, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Clamp }.prev().index, 0);
+    }
+
+    #[test]
+    fn test_mi_wrap() {
+        assert_eq!(MenuIndex { index: 2, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Wrap }.next().index, 0);
+        assert_eq!(MenuIndex { index: 0, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Wrap }.prev().index, 2);
     }
 }
