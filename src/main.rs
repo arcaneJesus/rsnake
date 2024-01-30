@@ -1,3 +1,5 @@
+mod menu;
+
 use raylib::prelude::{*, KeyboardKey::{KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT}};
 use std::collections::VecDeque;
 
@@ -71,8 +73,10 @@ struct Snake {
 #[derive(Clone)]
 struct MenuOption {
     display: String,
+    action: dyn FnMut()
 }
 
+#[deprecated]
 struct Menu { // TODO: Extract Menu implementations to separate file
     index: MenuIndex,
     options: Vec<MenuOption>,
@@ -169,9 +173,13 @@ impl MenuIndex {
 }
 
 impl MenuOption {
-    fn new(display: &str) -> Box<Self> {
+    fn new<F>(display: &str, func: F) -> Box<Self>
+    where
+        F: FnMut(Game)
+    {
         Box::new(Self {
             display: display.to_string(),
+            action: func,
         })
     }
 }
@@ -187,6 +195,10 @@ impl Menu {
             left_sel: None,
             end_behavior: None,
         }
+    }
+
+    fn select(&self) {
+        self.options[self.index.index].action();
     }
 
     fn next(&mut self) {
@@ -231,8 +243,11 @@ impl Menu {
 
 impl MenuBuilder {
     /// Define a new menu item.
-    fn item(mut self, display: &str) -> Self {
-        self.options.push(*MenuOption::new(display));
+    fn item<F>(mut self, display: &str, f: F) -> Self
+    where
+        F: FnMut(Game)
+    {
+        self.options.push(*MenuOption::new(display,f));
         self
     }
 
@@ -403,6 +418,9 @@ fn main() {
         .color(TEXT_COLOR)
         .font_size(FONT_SIZE)
         .build();
+    // The goal is to pass the constructor a closure that is run when the select function is called
+    // Meaning we need the function calling the closure to pass arguments to it rather than code creating it
+    let mut main_menu: menu::Menu<GameState> = menu::Menu::from(vec![("Start Game", |game| )]);
 
     // While window is open
     while !rl.window_should_close() {
@@ -417,6 +435,7 @@ fn main() {
                         main_menu.prev()
                     }
                     KEY_RIGHT => {
+
                     }
                 }
             }
