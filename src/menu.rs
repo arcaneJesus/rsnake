@@ -8,6 +8,7 @@ enum EndBehavior {
 
 type MenuItems<'a, T> = Vec<MenuItem<'a, T>>;
 
+// Lifetime so display string lives as long as menu
 pub struct Menu<'a, T> {
     index: i32,
     left_sel: String,
@@ -25,6 +26,7 @@ struct MenuItem<'a, T> {
 }
 
 impl<'a, T> MenuItem<'a, T> {
+    /// Create menu item from a display string and return value.
     fn from(display: &'a str, out_val: T) -> Self {
         Self {
             display,
@@ -34,18 +36,20 @@ impl<'a, T> MenuItem<'a, T> {
 }
 
 impl<'a, T> Menu<'a, T> {
+    /// Create menu with default values and no items
     pub fn new() -> Self {
         Self {
             index: 0,
-            left_sel: "> ".to_string(),
-            right_sel: " <".to_string(),
-            end_behavior: EndBehavior::Wrap,
+            left_sel: "> ".to_string(), // Why are these to strings you ask
+            right_sel: " <".to_string(), // Well that's a very good question
+            end_behavior: EndBehavior::Wrap, // Moving on
             items: Vec::new(),
             font_size: 40,
             color: Color::RAYWHITE,
         }
     }
 
+    /// Create menu from vector of items.
     pub fn from(items: Vec<(&'a str, T)>) -> Self
     where
     T: Clone
@@ -103,6 +107,7 @@ impl<'a, T> Menu<'a, T> {
         }
     }
 
+    // Keeps the value withing the max and min
     fn index_clamp(&self, val: i32) -> i32 {
         if val < 0 {
             0
@@ -113,6 +118,7 @@ impl<'a, T> Menu<'a, T> {
         }
     }
 
+    // Wraps the value around when it reaches the max or min
     fn index_wrap(&self, val: i32) -> i32 {
         let len: i32 = self.items.len() as i32 - 1;
         if val > len {
@@ -142,6 +148,7 @@ impl<'a, T> Menu<'a, T> {
         &self.items.get(self.index as usize).unwrap().out_val
     }
 
+    /// Compute the origin and draw the menu.
     pub fn draw<RD: RaylibDraw>(&self, rndr: &mut RD) {
         // Calculate the x origins for each line
         let x: Vec<(&MenuItem<T>, i32)> = self.items

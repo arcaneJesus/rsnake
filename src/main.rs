@@ -1,6 +1,6 @@
 mod menu;
 
-use raylib::prelude::{*, KeyboardKey::{KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT}};
+use raylib::prelude::{*, KeyboardKey::{KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ESCAPE}};
 use std::collections::VecDeque;
 
 // -------- CONSTANTS ---------
@@ -8,9 +8,10 @@ use std::collections::VecDeque;
 const WINDOW_SIZE: i32 = 800;
 const GRID_SIZE: i32 = 20;
 const FONT_SIZE: i32 = 40;
-// ---- STRING ----
+// ---- STRINGS ----
 const START_STRING: &str = "PRESS ANY KEY TO BEGIN";
 const END_STRING: &str = "GAME OVER\nPRESS ANY KEY TO PLAY AGAIN";
+const HELP_STRING: &str = "Your goal is to collect the red fruits\nwithout running into yourself or the walls.\nUse the arrow keys to move your snake.\nYour score is shown in the upper left corner.\nPress escape at any time to return to the\nmain menu.";
 // ---- COLOR ----
 const BACKGROUND_COLOR: Color = Color::BLACK;
 const BODY_COLOR: Color = Color::DARKGREEN;
@@ -36,7 +37,8 @@ enum GameState {
     Run,
     End,
     Help,
-    Credits,
+    Scores,
+    Exit,
 }
 
 #[derive(Clone)]
@@ -213,14 +215,19 @@ fn main() {
         .title("rsnake")
         .build();
     rl.set_target_fps(60);
+    rl.set_exit_key(None); // Stop escape from closing window
 
     let mut game = Game::new();
-    // The goal is to pass the constructor a closure that is run when the select function is called
-    // Meaning we need the function calling the closure to pass arguments to it rather than code creating it
-    let mut main_menu: menu::Menu<GameState> = menu::Menu::from(vec![("Start Game", GameState::Start),("Help", GameState::Help), ("Credits", GameState::Credits)]);
+    let mut running = true;
+    let mut main_menu: menu::Menu<GameState> = menu::Menu::from(vec![("Start Game", GameState::Run),("High Scores", GameState::Scores), ("Help", GameState::Help), ("Quit", GameState::Exit)])
+        .set_color(TEXT_COLOR)
+        .set_font_size(FONT_SIZE);
 
     // While window is open
-    while !rl.window_should_close() {
+    while !rl.window_should_close() && running {
+        if rl.is_key_pressed(KEY_ESCAPE) {
+            game.game_state = GameState::Start;
+        }
         // -------- LOGIC ---------
         match game.game_state {
             GameState::Start => {
@@ -232,15 +239,14 @@ fn main() {
                         main_menu.next();
                     }
                     Some(KEY_RIGHT) => {
-                        main_menu.select();
+                        game.game_state = main_menu.select().to_owned();
                     }
                     _ => {}
                 }
             }
             GameState::Help => {
-
             }
-            GameState::Credits => {
+            GameState::Scores => {
 
             }
             GameState::Run => {
@@ -267,6 +273,9 @@ fn main() {
                     game.game_state = GameState::Run;
                 }
             }
+            GameState::Exit => {
+                running = false;
+            }
         }
 
         // -------- RENDERING ---------
@@ -275,12 +284,36 @@ fn main() {
         rndr.clear_background(BACKGROUND_COLOR);
         match game.game_state {
             GameState::Start => {
+                // Draw title
+                rndr.draw_text(
+                    "SNAKE",
+                    WINDOW_SIZE / 2 - measure_text("SNAKE", 80) / 2,
+                    80,
+                    80,
+                    TEXT_COLOR
+                );
+                // Draw menu help
+                rndr.draw_text(
+                    "   Use up and down to move\nand right to confirm selection.",
+                    WINDOW_SIZE / 2 - measure_text("Use up and down to move and\nright to confirm selection.", 25) / 2,
+                    200,
+                    25,
+                    TEXT_COLOR
+                );
+                // Draw menu
                 main_menu.draw(&mut rndr);
             }
             GameState::Help => {
-
+                // Draw help
+                rndr.draw_text(
+                    HELP_STRING,
+                    40,
+                    80,
+                    30,
+                    TEXT_COLOR
+                )
             }
-            GameState::Credits => {
+            GameState::Scores => {
 
             }
             GameState::Run => {
@@ -301,6 +334,9 @@ fn main() {
                                WINDOW_SIZE / 2 - FONT_SIZE / 2,
                                FONT_SIZE,
                                TEXT_COLOR);
+            }
+            GameState::Exit => {
+
             }
         }
     }
