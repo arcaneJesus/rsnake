@@ -1,4 +1,5 @@
 mod menu;
+mod scores;
 
 use raylib::prelude::{*, KeyboardKey::{KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ESCAPE}};
 use std::collections::VecDeque;
