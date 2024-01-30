@@ -6,36 +6,36 @@ enum EndBehavior {
     Clamp
 }
 
-type MenuItems<T, U> = Vec<MenuItem<T, U>>;
+type MenuItems<T> = Vec<MenuItem<T>>;
 
-pub struct Menu<T, U> {
+pub struct Menu<T> {
     index: i32,
     left_sel: String,
     right_sel: String,
     end_behavior: EndBehavior,
-    items: MenuItems<T, U>,
+    items: MenuItems<T>,
     font_size: i32,
     color: Color,
 }
 
-struct MenuItem<T, U> {
+struct MenuItem<T> {
     display: String,
-    func: dyn Fn(U) -> T
+    func: Box<dyn Fn() -> T>
 }
 
-impl<T, U> MenuItem<T, U> {
-    fn from<F>(display: &str, func: F) -> Box<Self>
+impl<T> MenuItem<T> {
+    fn from<F>(display: &str, func: F) -> Self
     where
-        F: Fn(U, Menu<T,U>) -> T
+        F: Fn() -> T
     {
-        Box::new(Self {
+        Self {
             display: display.to_string(),
-            func,
-        })
+            func: Box::new(func),
+        }
     }
 }
 
-impl<T, U> Menu<T, U> {
+impl<T> Menu<T> {
     pub fn new() -> Self {
         Self {
             index: 0,
@@ -50,7 +50,7 @@ impl<T, U> Menu<T, U> {
 
     pub fn from<F>(items: Vec<(&str, F)>) -> Self
     where
-        F: Fn(U) -> T
+        F: Fn() -> T
     {
         Self {
             index: 0,
@@ -138,14 +138,13 @@ impl<T, U> Menu<T, U> {
         };
     }
 
-    pub fn select(&self) {
-        let func = self.items.get(self.index).unwrap();
-        func()
+    pub fn select(&self) -> T {
+        (self.items.get(self.index as usize).unwrap().func)()
     }
 
     pub fn draw<RD: RaylibDraw>(&self, rndr: &mut RD) {
         // Calculate the x origins for each line
-        let x: Vec<(&MenuItem<T, U>, i32)> = self.items
+        let x: Vec<(&MenuItem<T>, i32)> = self.items
             .iter()
             .map(|x| (x, WINDOW_SIZE / 2 - measure_text(&*x.display, self.font_size)/2))
             .collect();

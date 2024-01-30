@@ -67,32 +67,6 @@ struct Snake {
     head: Point,
 }
 
-/// Individual option in a menu.
-// Maybe add a closure for actions
-// Not entirely sure how I want that to work
-#[derive(Clone)]
-struct MenuOption {
-    display: String,
-    action: dyn FnMut()
-}
-
-#[deprecated]
-struct Menu { // TODO: Extract Menu implementations to separate file
-    index: MenuIndex,
-    options: Vec<MenuOption>,
-    font_size: i32,
-    color: Color,
-}
-
-struct MenuBuilder {
-    options: Vec<MenuOption>,
-    font_size: Option<i32>,
-    color: Option<Color>,
-    left_sel: Option<String>,
-    right_sel: Option<String>,
-    end_behavior: Option<EndBehavior>,
-}
-
 struct Game {
     snake: Snake,
     apple: Apple,
@@ -121,177 +95,6 @@ impl Apple {
             };
         }
         apple
-    }
-}
-
-impl MenuIndex {
-    fn new(items: i32, left_sel: String, right_sel: String, end_behavior: EndBehavior) -> Self {
-        Self {
-            index: 0,
-            items,
-            left_sel,
-            right_sel,
-            end_behavior,
-        }
-    }
-
-    /// Select the next menu item.
-    fn next(&mut self) {
-        self.index = match self.end_behavior {
-            EndBehavior::Wrap => { self.index_wrap(self.index + 1) }
-            EndBehavior::Clamp => { self.index_clamp(self.index + 1) }
-        };
-    }
-
-    /// Select the previous menu item.
-    fn prev(&mut self) {
-        self.index = match self.end_behavior {
-            EndBehavior::Wrap => { self.index_wrap(self.index - 1) }
-            EndBehavior::Clamp => { self.index_clamp(self.index - 1) }
-        };
-    }
-
-    /// Clamp index to list.
-    fn index_clamp(&self, val: i32) -> i32 {
-        if val < 0 {
-            0
-        } else {
-            self.index
-        }
-    }
-
-    /// Wrap index to list.
-    fn index_wrap(&self, val: i32) -> i32 {
-        if val > self.items - 1 {
-            0
-        } else if val < 0 {
-            self.items - 1
-        } else {
-            self.index
-        }
-    }
-}
-
-impl MenuOption {
-    fn new<F>(display: &str, func: F) -> Box<Self>
-    where
-        F: FnMut(Game)
-    {
-        Box::new(Self {
-            display: display.to_string(),
-            action: func,
-        })
-    }
-}
-
-impl Menu {
-    /// Generate empty MenuBuilder.
-    fn init() -> MenuBuilder {
-        MenuBuilder {
-            options: Vec::new(),
-            color: None,
-            font_size: None,
-            right_sel: None,
-            left_sel: None,
-            end_behavior: None,
-        }
-    }
-
-    fn select(&self) {
-        self.options[self.index.index].action();
-    }
-
-    fn next(&mut self) {
-        self.index.next();
-    }
-
-    fn prev(&mut self) {
-        self.index.prev();
-    }
-
-    /// Draw menu to the renderer provided.
-    fn draw<T: RaylibDraw>(&self, rndr: &mut T) {
-        // Calculate the x origins for each line
-        let x: Vec<(&MenuOption, i32)> = self.options
-            .iter()
-            .map(|x| (x, WINDOW_SIZE / 2 - measure_text(&*x.display, self.font_size) / 2))
-            .collect::<Vec<(&MenuOption, i32)>>();
-        // Calculate the y origin for the first line
-        let y: f32 = WINDOW_SIZE as f32 / 2.0 - self.font_size as f32 * 1.5;
-        // Iterate over menu options with an index
-        for (i, (op, pos)) in x.iter().enumerate() {
-            if self.index.index == i as i32 { // If current option is selected
-                rndr.draw_text(
-                    &*format!("{}{}{}", &self.index.left_sel, &op.display, &self.index.right_sel),
-                    *pos - measure_text("> ", self.font_size), // Adjust for selection indicator
-                    (y + (self.font_size as f32 * 1.5 * i as f32)) as i32, // Adjust by line number
-                    self.font_size,
-                    self.color,
-                );
-            } else {
-                rndr.draw_text(
-                    &*op.display,
-                    *pos,
-                    (y + (self.font_size as f32 * 1.5 * i as f32)) as i32, // Adjust by line number
-                    self.font_size,
-                    self.color,
-                );
-            }
-        }
-    }
-}
-
-impl MenuBuilder {
-    /// Define a new menu item.
-    fn item<F>(mut self, display: &str, f: F) -> Self
-    where
-        F: FnMut(Game)
-    {
-        self.options.push(*MenuOption::new(display,f));
-        self
-    }
-
-    /// Define the text color.
-    fn color(mut self, color: Color) -> Self {
-        self.color = Some(color);
-        self
-    }
-
-    /// Define the font size.
-    fn font_size(mut self, font_size: i32) -> Self {
-        self.font_size = Some(font_size);
-        self
-    }
-
-    // Define the selector appearance.
-    fn selector(mut self, left: &str, right: &str) -> Self {
-        self.left_sel = Some(left.to_string());
-        self.right_sel = Some(right.to_string());
-        self
-    }
-
-    // Build the final Menu.
-    fn build(&self) -> Menu {
-        Menu {
-            index: MenuIndex::new(
-                self.options.len() as i32,
-                self.left_sel
-                    .clone()
-                    .unwrap_or("> ".to_string()),
-                self.right_sel
-                    .clone()
-                    .unwrap_or(" <".to_string()),
-                self.end_behavior
-                    .clone()
-                    .unwrap_or(EndBehavior::Wrap)
-            ),
-            options: self.options
-                .clone(),
-            color: self.color
-                .unwrap_or(Color::RAYWHITE),
-            font_size: self.font_size
-                .unwrap_or(40),
-        }
     }
 }
 
@@ -411,16 +214,9 @@ fn main() {
     rl.set_target_fps(60);
 
     let mut game = Game::new();
-    let mut main_menu: Menu = Menu::init()
-        .item("Start Game")
-        .item("Help")
-        .item("Credits")
-        .color(TEXT_COLOR)
-        .font_size(FONT_SIZE)
-        .build();
     // The goal is to pass the constructor a closure that is run when the select function is called
     // Meaning we need the function calling the closure to pass arguments to it rather than code creating it
-    let mut main_menu: menu::Menu<GameState> = menu::Menu::from(vec![("Start Game", |game| )]);
+    let mut main_menu: menu::Menu<GameState> = menu::Menu::from(vec![("Start Game", Box::new(|| {GameState::Start}) as Box<dyn Fn() -> GameState>),("Help", Box::new(|| GameState::Help)), ("Credits", || GameState::Credits)]);
 
     // While window is open
     while !rl.window_should_close() {
@@ -435,7 +231,7 @@ fn main() {
                         main_menu.prev()
                     }
                     KEY_RIGHT => {
-
+                        main_menu.select()
                     }
                 }
             }
