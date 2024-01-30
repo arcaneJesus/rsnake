@@ -30,6 +30,7 @@ type Apple = Point;
 
 // -------- ENUMS -----------
 
+#[derive(Clone)]
 enum GameState {
     Start,
     Run,
@@ -216,7 +217,7 @@ fn main() {
     let mut game = Game::new();
     // The goal is to pass the constructor a closure that is run when the select function is called
     // Meaning we need the function calling the closure to pass arguments to it rather than code creating it
-    let mut main_menu: menu::Menu<GameState> = menu::Menu::from(vec![("Start Game", Box::new(|| {GameState::Start}) as Box<dyn Fn() -> GameState>),("Help", Box::new(|| GameState::Help)), ("Credits", || GameState::Credits)]);
+    let mut main_menu: menu::Menu<GameState> = menu::Menu::from(vec![("Start Game", GameState::Start),("Help", GameState::Help), ("Credits", GameState::Credits)]);
 
     // While window is open
     while !rl.window_should_close() {
@@ -224,15 +225,16 @@ fn main() {
         match game.game_state {
             GameState::Start => {
                 match rl.get_key_pressed() {
-                    KEY_UP => {
-                        main_menu.next()
+                    Some(KEY_UP) => {
+                        main_menu.prev();
                     }
-                    KEY_DOWN => {
-                        main_menu.prev()
+                    Some(KEY_DOWN) => {
+                        main_menu.next();
                     }
-                    KEY_RIGHT => {
-                        main_menu.select()
+                    Some(KEY_RIGHT) => {
+                        main_menu.select();
                     }
+                    _ => {}
                 }
             }
             GameState::Help => {
@@ -274,6 +276,12 @@ fn main() {
         match game.game_state {
             GameState::Start => {
                 main_menu.draw(&mut rndr);
+            }
+            GameState::Help => {
+
+            }
+            GameState::Credits => {
+
             }
             GameState::Run => {
                 // Draw head

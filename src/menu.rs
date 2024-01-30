@@ -3,39 +3,37 @@ use crate::WINDOW_SIZE;
 
 enum EndBehavior {
     Wrap,
-    Clamp
+    Clamp,
 }
 
-type MenuItems<T> = Vec<MenuItem<T>>;
+type MenuItems<'a, T> = Vec<MenuItem<'a, T>>;
 
-pub struct Menu<T> {
+pub struct Menu<'a, T> {
     index: i32,
     left_sel: String,
     right_sel: String,
     end_behavior: EndBehavior,
-    items: MenuItems<T>,
+    items: MenuItems<'a, T>,
     font_size: i32,
     color: Color,
 }
 
-struct MenuItem<T> {
-    display: String,
-    func: Box<dyn Fn() -> T>
+#[derive(Clone)]
+struct MenuItem<'a, T> {
+    display: &'a str,
+    out_val: T,
 }
 
-impl<T> MenuItem<T> {
-    fn from<F>(display: &str, func: F) -> Self
-    where
-        F: Fn() -> T
-    {
+impl<'a, T> MenuItem<'a, T> {
+    fn from(display: &'a str, out_val: T) -> Self {
         Self {
-            display: display.to_string(),
-            func: Box::new(func),
+            display,
+            out_val,
         }
     }
 }
 
-impl<T> Menu<T> {
+impl<'a, T> Menu<'a, T> {
     pub fn new() -> Self {
         Self {
             index: 0,
@@ -48,9 +46,9 @@ impl<T> Menu<T> {
         }
     }
 
-    pub fn from<F>(items: Vec<(&str, F)>) -> Self
+    pub fn from(items: Vec<(&'a str, T)>) -> Self
     where
-        F: Fn() -> T
+    T: Clone
     {
         Self {
             index: 0,
@@ -58,8 +56,8 @@ impl<T> Menu<T> {
             right_sel: " <".to_string(),
             end_behavior: EndBehavior::Wrap,
             items: items
-                .iter()
-                .map(|(d, f)| MenuItem::from(d,f))
+                .into_iter()
+                .map(|(d, f)| MenuItem::from(d, f).to_owned())
                 .collect(),
             font_size: 40,
             color: Color::RAYWHITE,
@@ -108,8 +106,10 @@ impl<T> Menu<T> {
     fn index_clamp(&self, val: i32) -> i32 {
         if val < 0 {
             0
-        } else {
+        } else if val > self.items.len() as i32 - 1 {
             self.index
+        } else {
+            val
         }
     }
 
@@ -120,33 +120,33 @@ impl<T> Menu<T> {
         } else if val < 0 {
             len
         } else {
-            self.index
+            val
         }
     }
 
     pub fn next(&mut self) {
         self.index = match self.end_behavior {
-            EndBehavior::Wrap => {self.index_wrap(self.index + 1)}
-            EndBehavior::Clamp => {self.index_clamp(self.index + 1)}
+            EndBehavior::Wrap => { self.index_wrap(self.index + 1) }
+            EndBehavior::Clamp => { self.index_clamp(self.index + 1) }
         };
     }
 
     pub fn prev(&mut self) {
         self.index = match self.end_behavior {
-            EndBehavior::Wrap => {self.index_wrap(self.index - 1)}
-            EndBehavior::Clamp => {self.index_clamp(self.index - 1)}
+            EndBehavior::Wrap => { self.index_wrap(self.index - 1) }
+            EndBehavior::Clamp => { self.index_clamp(self.index - 1) }
         };
     }
 
-    pub fn select(&self) -> T {
-        (self.items.get(self.index as usize).unwrap().func)()
+    pub fn select(&self) -> &T {
+        &self.items.get(self.index as usize).unwrap().out_val
     }
 
     pub fn draw<RD: RaylibDraw>(&self, rndr: &mut RD) {
         // Calculate the x origins for each line
         let x: Vec<(&MenuItem<T>, i32)> = self.items
             .iter()
-            .map(|x| (x, WINDOW_SIZE / 2 - measure_text(&*x.display, self.font_size)/2))
+            .map(|x| (x, WINDOW_SIZE / 2 - measure_text(&*x.display, self.font_size) / 2))
             .collect();
         //  Calculate the y origin for the first line
         let y: f32 = WINDOW_SIZE as f32 / 2.0 - self.font_size as f32 * 1.5;
@@ -164,7 +164,7 @@ impl<T> Menu<T> {
                 rndr.draw_text(
                     &*op.display,
                     *pos,
-                    (y+(self.font_size as f32 * 1.5 * i as f32)) as i32, // Adjust by line number
+                    (y + (self.font_size as f32 * 1.5 * i as f32)) as i32, // Adjust by line number
                     self.font_size,
                     self.color,
                 );
