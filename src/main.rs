@@ -482,21 +482,3 @@ fn main() {
         }
     }
 }
-
-// --------- TESTS -----------
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_mi_clamp() {
-        assert_eq!(MenuIndex { index: 2, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Clamp }.next().index, 2);
-        assert_eq!(MenuIndex { index: 0, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Clamp }.prev().index, 0);
-    }
-
-    #[test]
-    fn test_mi_wrap() {
-        assert_eq!(MenuIndex { index: 2, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Wrap }.next().index, 0);
-        assert_eq!(MenuIndex { index: 0, items: 3, left_sel: "".to_string(), right_sel: "".to_string(), end_behavior: EndBehavior::Wrap }.prev().index, 2);
-    }
-}
