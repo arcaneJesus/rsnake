@@ -32,6 +32,8 @@ enum GameState {
     Start,
     Run,
     End,
+    Help,
+    Credits,
 }
 
 #[derive(Clone)]
@@ -130,21 +132,19 @@ impl MenuIndex {
     }
 
     /// Select the next menu item.
-    fn next(&mut self) -> &mut Self {
+    fn next(&mut self) {
         self.index = match self.end_behavior {
             EndBehavior::Wrap => { self.index_wrap(self.index + 1) }
             EndBehavior::Clamp => { self.index_clamp(self.index + 1) }
         };
-        self
     }
 
     /// Select the previous menu item.
-    fn prev(&mut self) -> &mut Self {
+    fn prev(&mut self) {
         self.index = match self.end_behavior {
             EndBehavior::Wrap => { self.index_wrap(self.index - 1) }
             EndBehavior::Clamp => { self.index_clamp(self.index - 1) }
         };
-        self
     }
 
     /// Clamp index to list.
@@ -187,6 +187,14 @@ impl Menu {
             left_sel: None,
             end_behavior: None,
         }
+    }
+
+    fn next(&mut self) {
+        self.index.next();
+    }
+
+    fn prev(&mut self) {
+        self.index.prev();
     }
 
     /// Draw menu to the renderer provided.
@@ -388,7 +396,7 @@ fn main() {
     rl.set_target_fps(60);
 
     let mut game = Game::new();
-    let main_menu: Menu = Menu::init()
+    let mut main_menu: Menu = Menu::init()
         .item("Start Game")
         .item("Help")
         .item("Credits")
@@ -401,10 +409,22 @@ fn main() {
         // -------- LOGIC ---------
         match game.game_state {
             GameState::Start => {
-                // If a key is pressed start game
-                if rl.get_key_pressed().is_some() {
-                    game.game_state = GameState::Run;
+                match rl.get_key_pressed() {
+                    KEY_UP => {
+                        main_menu.next()
+                    }
+                    KEY_DOWN => {
+                        main_menu.prev()
+                    }
+                    KEY_RIGHT => {
+                    }
                 }
+            }
+            GameState::Help => {
+
+            }
+            GameState::Credits => {
+
             }
             GameState::Run => {
                 // Get last key pressed
