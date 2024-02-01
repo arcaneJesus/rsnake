@@ -19,7 +19,7 @@ const HEAD_COLOR: Color = Color::GREEN;
 const TEXT_COLOR: Color = Color::LIGHTGRAY;
 const APPLE_COLOR: Color = Color::RED;
 // ---- MISC ----
-const TICK_DELAY: i32 = 10;
+const TICK_DELAY: i32 = 10; // Default 10
 // Lower tick delay increases game speed
 const GRID_PX: i32 = WINDOW_SIZE / GRID_SIZE;
 
@@ -53,16 +53,6 @@ enum EndBehavior {
 struct Point {
     x: i32,
     y: i32,
-}
-
-/// Currently selected menu item and the selection indicators.
-#[derive(Clone)]
-struct MenuIndex {
-    index: i32,
-    items: i32,
-    left_sel: String,
-    right_sel: String,
-    end_behavior: EndBehavior,
 }
 
 struct Snake {
