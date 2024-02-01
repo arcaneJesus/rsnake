@@ -22,6 +22,7 @@ const APPLE_COLOR: Color = Color::RED;
 const TICK_DELAY: i32 = 10; // Default 10
 // Lower tick delay increases game speed
 const GRID_PX: i32 = WINDOW_SIZE / GRID_SIZE;
+const SNAKE_LEN: usize = 3;
 
 // --------- TYPE ALIASES ---------
 
@@ -161,7 +162,7 @@ impl Clone for Snake {
 impl Game {
     fn new() -> Self {
         // Bind snake early so apple constructor can reference it
-        let snake = Snake::new(3);
+        let snake = Snake::new(SNAKE_LEN);
         Self {
             snake: snake.clone(),
             apple: Apple::new(&snake),
