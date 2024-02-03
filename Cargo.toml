@@ -9,4 +9,3 @@ license = "GPL-3.0"
 
 [dependencies]
 raylib = "3.7.0"
-rmp-serde = "1.1.2"
